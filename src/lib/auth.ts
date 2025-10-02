@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 
 const HEADER_KEY = 'x-user-id';
 
-const fallbackUserId = () => process.env.DEFAULT_USER_ID ?? null;
+const fallbackUserId = () => process.env['DEFAULT_USER_ID'] ?? null;
 
 type Options = {
   required?: boolean;

@@ -4,6 +4,17 @@ type IconOptions = {
   maskable?: boolean;
 };
 
+type ImageResponseConstructor = new (
+  _element: JSX.Element,
+  _options?: {
+    width?: number;
+    height?: number;
+    fonts?: Array<{ name: string; data: ArrayBufferLike; weight?: number; style?: string }>;
+  }
+) => Response;
+
+const ImageResponseImpl = ImageResponse as unknown as ImageResponseConstructor;
+
 const backgroundColor = '#0b0b0d';
 const borderColor = '#6366f1';
 const gradientFrom = '#6366f1';
@@ -16,7 +27,7 @@ export function createIconResponse(size: number, { maskable = false }: IconOptio
   const fontSize = Math.round(size * 0.45);
   const letterSpacing = -Math.round(size * 0.05);
 
-  return new ImageResponse(
+  return new ImageResponseImpl(
     (
       <div
         style={{

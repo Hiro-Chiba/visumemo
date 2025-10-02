@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'empty body' }, { status: 400 });
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env['BLOB_READ_WRITE_TOKEN'];
   if (!token) {
     return NextResponse.json({ message: 'BLOB_READ_WRITE_TOKEN is not configured' }, { status: 500 });
   }
