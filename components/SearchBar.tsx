@@ -36,6 +36,7 @@ export function SearchBar() {
   return (
     <div className="relative">
       <input
+        id="note-search"
         type="search"
         value={query}
         onChange={(event) => {
@@ -44,8 +45,9 @@ export function SearchBar() {
           updateQuery(value);
         }}
         placeholder="タイトルやプレビューで検索"
-        className="w-full rounded-lg bg-surfaceLight px-4 py-2 text-base shadow-inner"
+        className="w-full rounded-2xl border border-slate-700 bg-surfaceLight px-4 py-3 text-base shadow-inner"
         aria-label="メモを検索"
+        autoComplete="off"
       />
       {isPending ? (
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">

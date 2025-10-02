@@ -2,13 +2,9 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import dayjs from 'dayjs';
-import { createNoteAction, updateNoteAction, updateNoteThumbnailAction } from '@/app/notes/actions';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { buildPreviewText } from '@/lib/utils/preview';
-import { captureElementToJpeg } from '@/lib/utils/thumb';
-
-const THUMB_BUCKET = 'thumbs';
+import { captureElementToJpeg } from '@/src/lib/capture';
+import { buildPreviewText } from '@/src/lib/notes';
+import { useUserId } from './UserIdProvider';
 
 type NoteEditorProps = {
   mode: 'create' | 'edit';
@@ -17,8 +13,16 @@ type NoteEditorProps = {
   initialBody?: string;
 };
 
+const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
+  hour: '2-digit',
+  minute: '2-digit',
+  month: 'short',
+  day: 'numeric'
+});
+
 export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }: NoteEditorProps) {
   const router = useRouter();
+  const userId = useUserId();
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
@@ -26,16 +30,51 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
   const [error, setError] = useState('');
 
   const previewText = useMemo(() => buildPreviewText(body), [body]);
+  const timestampLabel = dateFormatter.format(new Date());
 
   const handleSave = useCallback(async () => {
+    if (!userId) {
+      setError('ユーザーIDがヘッダーに含まれていません');
+      return;
+    }
     setIsSaving(true);
     setError('');
+
     try {
+      const payload = {
+        title,
+        body,
+        previewText
+      };
+
       let currentId = noteId ?? '';
+
       if (mode === 'create') {
-        currentId = await createNoteAction({ title, body });
-      } else if (mode === 'edit' && noteId) {
-        await updateNoteAction({ id: noteId, title, body });
+        const response = await fetch('/api/notes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          throw new Error('ノートの作成に失敗しました');
+        }
+        const created = await response.json();
+        currentId = created.id as string;
+      } else if (mode === 'edit' && currentId) {
+        const response = await fetch(`/api/notes/${currentId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          throw new Error('ノートの更新に失敗しました');
+        }
       }
 
       if (!currentId) {
@@ -43,23 +82,30 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
       }
 
       if (previewRef.current) {
-        const blob = await captureElementToJpeg(previewRef.current, {
-          width: 960,
-          quality: 0.9,
+        const blob = await captureElementToJpeg(previewRef.current, { width: 960, quality: 0.9 });
+        const uploadResponse = await fetch(`/api/blob/put?noteId=${currentId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'x-user-id': userId
+          },
+          body: blob
         });
-        const supabase = getSupabaseBrowserClient();
-        const path = `${currentId}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from(THUMB_BUCKET)
-          .upload(path, blob, {
-            upsert: true,
-            contentType: 'image/jpeg',
-            cacheControl: '3600',
-          });
-        if (uploadError) {
-          throw uploadError;
+        if (!uploadResponse.ok) {
+          throw new Error('サムネイルのアップロードに失敗しました');
         }
-        await updateNoteThumbnailAction({ id: currentId, path });
+        const { url } = (await uploadResponse.json()) as { url: string };
+        const finalizeResponse = await fetch(`/api/notes/${currentId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId
+          },
+          body: JSON.stringify({ ...payload, thumbUrl: url })
+        });
+        if (!finalizeResponse.ok) {
+          throw new Error('サムネイルURLの保存に失敗しました');
+        }
       }
 
       router.push('/');
@@ -70,37 +116,28 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
     } finally {
       setIsSaving(false);
     }
-  }, [body, mode, noteId, router, title]);
+  }, [body, mode, noteId, previewText, router, title, userId]);
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 pb-16">
+      <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">
+          <h1 className="text-2xl font-bold">
             {mode === 'create' ? '新規メモ' : 'メモを編集'}
           </h1>
-          <p className="text-sm text-slate-400">保存すると一覧のサムネイルが自動更新されます。</p>
+          <p className="text-sm text-slate-400">保存すると一覧のサムネイルが自動生成されます。</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-sky-300 disabled:opacity-60"
-          >
-            {isSaving ? '保存中...' : '保存する'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg disabled:opacity-60"
+        >
+          {isSaving ? '保存中…' : '保存'}
+        </button>
       </header>
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      {error ? <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">{error}</p> : null}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <div className="space-y-4">
           <label className="block text-sm font-medium text-slate-300">
             タイトル
@@ -108,9 +145,9 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              className="mt-2 w-full rounded-lg bg-slate-900 px-4 py-2"
+              maxLength={120}
+              className="mt-2 w-full rounded-2xl border border-slate-700 bg-surfaceLight px-4 py-3 text-base shadow-inner"
               placeholder="タイトルを入力"
-              maxLength={200}
             />
           </label>
           <label className="block text-sm font-medium text-slate-300">
@@ -118,7 +155,7 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              className="mt-2 h-72 w-full rounded-lg bg-slate-900 px-4 py-3"
+              className="mt-2 h-72 w-full rounded-2xl border border-slate-700 bg-surfaceLight px-4 py-3 text-base shadow-inner"
               placeholder="本文を入力"
             />
           </label>
@@ -126,16 +163,14 @@ export function NoteEditor({ mode, noteId, initialTitle = '', initialBody = '' }
         <div>
           <div
             ref={previewRef}
-            className="flex h-full flex-col justify-between rounded-xl bg-slate-900 p-6 shadow-card"
+            className="flex h-full flex-col justify-between rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-black p-6 shadow-card"
           >
             <div className="space-y-3">
               <span className="text-xs uppercase tracking-wide text-slate-500">Preview</span>
-              <h2 className="text-xl font-semibold text-slate-100">{title || '無題のメモ'}</h2>
-              <p className="text-sm text-slate-300">{previewText || 'ここに本文の概要が表示されます'}</p>
+              <h2 className="text-xl font-semibold text-white">{title || '無題のメモ'}</h2>
+              <p className="line-clamp-3 text-sm text-slate-300">{previewText || '本文の要約がここに表示されます。'}</p>
             </div>
-            <div className="text-right text-xs text-slate-500">
-              {dayjs().format('YYYY/MM/DD HH:mm')}
-            </div>
+            <div className="text-right text-xs text-slate-500">{timestampLabel}</div>
           </div>
         </div>
       </div>

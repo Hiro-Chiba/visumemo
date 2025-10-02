@@ -7,15 +7,11 @@ type CaptureOptions = {
   quality?: number;
 };
 
-export const captureElementToJpeg = async (
+export async function captureElementToJpeg(
   element: HTMLElement,
   { width = 960, quality = 0.9 }: CaptureOptions = {}
-): Promise<Blob> => {
-  const dataUrl = await toJpeg(element, {
-    quality,
-    width
-  });
+): Promise<Blob> {
+  const dataUrl = await toJpeg(element, { width, quality });
   const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return blob;
-};
+  return response.blob();
+}
