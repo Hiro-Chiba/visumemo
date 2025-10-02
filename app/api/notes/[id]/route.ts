@@ -57,7 +57,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ message: 'not found' }, { status: 404 });
   }
 
-  const data: Record<string, unknown> = {
+  const data: {
+    contentUpdatedAt: Date;
+    title?: string;
+    body?: string;
+    previewText?: string;
+    thumbUrl?: string | null;
+    thumbUpdatedAt?: Date | null;
+  } = {
     contentUpdatedAt: new Date()
   };
 
