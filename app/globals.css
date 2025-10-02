@@ -1,0 +1,6 @@
+/* Intentionally left minimal; actual styles live in styles/globals.css */
+html,
+body,
+:root {
+  height: 100%;
+}
