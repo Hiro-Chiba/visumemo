@@ -4,14 +4,9 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.supabase.co'
+        hostname: '*.blob.vercel-storage.com'
       }
     ]
-  },
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['*']
-    }
   }
 };
 

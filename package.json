@@ -12,9 +12,8 @@
     "format": "prettier --check \"**/*.{js,jsx,ts,tsx,css,md}\""
   },
   "dependencies": {
-    "@supabase/auth-helpers-nextjs": "^0.10.0",
-    "@supabase/supabase-js": "^2.38.4",
-    "dayjs": "^1.11.10",
+    "@prisma/client": "^5.11.0",
+    "@vercel/blob": "^0.20.0",
     "html-to-image": "^1.11.11",
     "next": "14.1.0",
     "react": "18.2.0",
@@ -29,6 +28,7 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
     "postcss": "^8.4.33",
+    "prisma": "^5.11.0",
     "prettier": "^3.1.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3"

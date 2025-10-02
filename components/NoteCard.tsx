@@ -1,44 +1,40 @@
-import dayjs from 'dayjs';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Note } from '@/lib/types';
+import type { NoteDTO } from '@/src/types';
 
-type NoteCardProps = {
-  note: Note;
-};
+const formatter = new Intl.DateTimeFormat('ja-JP', {
+  month: 'short',
+  day: 'numeric'
+});
 
-export function NoteCard({ note }: NoteCardProps) {
-  const formattedDate = dayjs(note.content_updated_at).format('YYYY/MM/DD HH:mm');
+export function NoteCard({ note }: { note: NoteDTO }) {
+  const updatedAt = formatter.format(new Date(note.contentUpdatedAt));
 
   return (
-    <Link
-      href={`/notes/${note.id}`}
-      className="block break-inside-avoid rounded-xl bg-surfaceLight shadow-card transition hover:-translate-y-1 hover:shadow-lg"
-    >
-      <div className="overflow-hidden rounded-t-xl bg-slate-900">
-        {note.thumb_url ? (
-          <Image
-            src={note.thumb_url}
-            alt={`${note.title} のサムネイル`}
-            width={640}
-            height={480}
-            className="h-auto w-full object-cover"
-            sizes="(max-width: 640px) 100vw, 640px"
-            priority={false}
-          />
-        ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-slate-500">
-            No Preview
+    <Link href={`/notes/${note.id}`} className="group mb-4 block break-inside-avoid">
+      <article className="relative overflow-hidden rounded-3xl bg-surfaceLight shadow-card">
+        <div className="relative aspect-[3/4]">
+          {note.thumbUrl ? (
+            <Image
+              src={note.thumbUrl}
+              alt={`${note.title || '無題'}のサムネイル`}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover"
+              priority={false}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-black text-4xl">
+              📝
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4">
+            <h3 className="truncate text-base font-semibold text-white">{note.title || '無題のメモ'}</h3>
+            <p className="line-clamp-2 text-xs text-slate-200">{note.previewText || 'プレビューはまだありません。'}</p>
           </div>
-        )}
-      </div>
-      <div className="space-y-2 px-4 py-3">
-        <div className="text-sm text-slate-400">{formattedDate}</div>
-        <h3 className="truncate text-lg font-semibold text-slate-100">{note.title || '無題のメモ'}</h3>
-        <p className="truncate text-sm text-slate-300">
-          {note.preview_text || '内容がまだありません'}
-        </p>
-      </div>
+          <div className="absolute left-0 top-0 rounded-br-3xl bg-black/40 px-3 py-2 text-xs text-white">{updatedAt}</div>
+        </div>
+      </article>
     </Link>
   );
 }

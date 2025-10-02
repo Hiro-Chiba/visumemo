@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model Note {
+  id               String   @id @default(uuid())
+  userId           String
+  title            String   @default("")
+  body             String   @default("")
+  previewText      String   @default("")
+  thumbUrl         String?
+  contentUpdatedAt DateTime @default(now())
+  thumbUpdatedAt   DateTime?
+  isDeleted        Boolean  @default(false)
+
+  @@index([userId, contentUpdatedAt(sort: Desc)])
+}

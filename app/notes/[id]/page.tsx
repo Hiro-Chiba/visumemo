@@ -1,64 +1,29 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { NoteEditor } from '@/components/NoteEditor';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { requireUserId } from '@/src/lib/auth';
+import { prisma } from '@/src/lib/prisma';
 
-export default function NoteDetailPage() {
-  const params = useParams<{ id: string }>();
-  const noteIdParam = Array.isArray(params?.id) ? params.id[0] : params?.id;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [initialTitle, setInitialTitle] = useState('');
-  const [initialBody, setInitialBody] = useState('');
+export const dynamic = 'force-dynamic';
 
-  useEffect(() => {
-    const id = noteIdParam;
-    if (!id) {
-      setError('ノートIDが無効です');
-      setLoading(false);
-      return;
+type PageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export default async function NoteDetailPage({ params }: PageProps) {
+  const userId = requireUserId();
+  const note = await prisma.note.findFirst({
+    where: {
+      id: params.id,
+      userId,
+      isDeleted: false
     }
-    const supabase = getSupabaseBrowserClient();
-    const fetchNote = async () => {
-      setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('notes')
-        .select('title, body')
-        .eq('id', id)
-        .single();
-      if (fetchError || !data) {
-        setError(fetchError?.message ?? 'メモが見つかりません');
-      } else {
-        setInitialTitle(data.title);
-        setInitialBody(data.body);
-        setError('');
-      }
-      setLoading(false);
-    };
-    fetchNote();
-  }, [noteIdParam]);
+  });
 
-  if (loading) {
-    return (
-      <main className="flex min-h-[50vh] items-center justify-center text-slate-400">
-        読み込み中...
-      </main>
-    );
+  if (!note) {
+    notFound();
   }
 
-  if (error) {
-    return (
-      <main className="flex min-h-[50vh] items-center justify-center text-red-400">
-        {error}
-      </main>
-    );
-  }
-
-  if (!noteIdParam) {
-    return null;
-  }
-
-  return <NoteEditor mode="edit" noteId={noteIdParam} initialTitle={initialTitle} initialBody={initialBody} />;
+  return <NoteEditor mode="edit" noteId={note.id} initialTitle={note.title} initialBody={note.body} />;
 }
